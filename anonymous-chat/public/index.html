@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Анонимный чат</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class="header">Партнер: <span id="partner">Ищем...</span></div>
+    <div class="message-list" id="message-list"></div>
+    <div class="chat-input">
+        <input type="text" id="input-message" placeholder="Сообщение...">
+        <button onclick="sendMessage()">Отправить</button>
+    </div>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="/script.js"></script>
+</body>
+</html> 
