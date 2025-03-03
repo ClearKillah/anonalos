@@ -46,31 +46,26 @@ function forceFullscreen() {
 }
 
 // Настраиваем цвета для соответствия теме Telegram
-document.documentElement.style.setProperty('--bg-color', TelegramWebApp.themeParams.bg_color);
-document.documentElement.style.setProperty('--text-color', TelegramWebApp.themeParams.text_color);
-document.documentElement.style.setProperty('--hint-color', TelegramWebApp.themeParams.hint_color);
-document.documentElement.style.setProperty('--link-color', TelegramWebApp.themeParams.link_color);
-document.documentElement.style.setProperty('--button-color', TelegramWebApp.themeParams.button_color || '#2481cc');
-document.documentElement.style.setProperty('--button-text-color', TelegramWebApp.themeParams.button_text_color || '#ffffff');
+function updateTelegramTheme() {
+    // Получаем цвета из Telegram WebApp
+    document.documentElement.style.setProperty('--tg-theme-bg-color', TelegramWebApp.themeParams.bg_color || '#ffffff');
+    document.documentElement.style.setProperty('--tg-theme-text-color', TelegramWebApp.themeParams.text_color || '#000000');
+    document.documentElement.style.setProperty('--tg-theme-hint-color', TelegramWebApp.themeParams.hint_color || '#999999');
+    document.documentElement.style.setProperty('--tg-theme-link-color', TelegramWebApp.themeParams.link_color || '#2481cc');
+    document.documentElement.style.setProperty('--tg-theme-button-color', TelegramWebApp.themeParams.button_color || '#2481cc');
+    document.documentElement.style.setProperty('--tg-theme-button-text-color', TelegramWebApp.themeParams.button_text_color || '#ffffff');
+    document.documentElement.style.setProperty('--tg-theme-secondary-bg-color', TelegramWebApp.themeParams.secondary_bg_color || '#f1f1f1');
+}
+
+// Вызываем функцию при загрузке и изменении темы
+updateTelegramTheme();
+TelegramWebApp.onEvent('themeChanged', updateTelegramTheme);
 
 // Устанавливаем обработчик закрытия приложения
 TelegramWebApp.onEvent('viewportChanged', () => {
     forceFullscreen();
     adjustHeight();
 });
-
-TelegramWebApp.onEvent('themeChanged', () => {
-    // Обновляем цвета при изменении темы
-    document.documentElement.style.setProperty('--bg-color', TelegramWebApp.themeParams.bg_color);
-    document.documentElement.style.setProperty('--text-color', TelegramWebApp.themeParams.text_color);
-    document.documentElement.style.setProperty('--hint-color', TelegramWebApp.themeParams.hint_color);
-    document.documentElement.style.setProperty('--link-color', TelegramWebApp.themeParams.link_color);
-    document.documentElement.style.setProperty('--button-color', TelegramWebApp.themeParams.button_color || '#2481cc');
-    document.documentElement.style.setProperty('--button-text-color', TelegramWebApp.themeParams.button_text_color || '#ffffff');
-});
-
-// Отключаем прокрутку родительского окна
-TelegramWebApp.enableClosingConfirmation();
 
 // DOM элементы
 const nicknameScreen = document.getElementById('nickname-screen');
@@ -441,10 +436,10 @@ async function updateChat() {
         // Создаем HTML для сообщений в стиле Telegram
         messageList.innerHTML = messageGroups.map(group => {
             const isUser = group.sender_id === userId;
-            const groupClass = isUser ? 'user' : 'partner';
+            const groupClass = isUser ? 'items-end' : 'items-start';
             
             return `
-                <div class="message-group ${groupClass}">
+                <div class="flex flex-col ${groupClass} mb-4 w-full">
                     ${group.messages.map((msg, index) => {
                         // Безопасно получаем текст сообщения
                         const messageText = msg.message || '';
@@ -455,10 +450,16 @@ async function updateChat() {
                         // Показываем время только для последнего сообщения в группе
                         const showTime = index === group.messages.length - 1;
                         
+                        // Стили для сообщений
+                        const messageBg = isUser ? 'bg-tg-button text-white' : 'bg-white border border-gray-200';
+                        const messageRadius = isUser ? 'rounded-2xl rounded-br-md' : 'rounded-2xl rounded-bl-md';
+                        
                         return `
-                            <div class="message-container ${groupClass}">
-                                <div class="message">${messageText}</div>
-                                ${showTime && time ? `<div class="message-time">${time}</div>` : ''}
+                            <div class="max-w-[80%] mb-1">
+                                <div class="${messageBg} ${messageRadius} px-3 py-2 shadow-sm">
+                                    <div>${messageText}</div>
+                                    ${showTime && time ? `<div class="text-xs opacity-70 text-right mt-1">${time}</div>` : ''}
+                                </div>
                             </div>
                         `;
                     }).join('')}
