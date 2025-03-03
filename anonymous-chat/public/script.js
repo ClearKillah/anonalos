@@ -447,6 +447,7 @@ async function updateChat() {
         
         if (data.error) {
             console.error('Ошибка API:', data.error);
+            // Не показываем ошибку пользователю, просто логируем
             return;
         }
         
@@ -465,7 +466,7 @@ async function updateChat() {
         
         // Обновляем информацию о партнере
         currentPartner = data.partner;
-        partnerSpan.textContent = data.partnerNickname || 'Unknown';
+        partnerSpan.textContent = data.partnerNickname || 'Аноним';
         
         // Проверка, нужно ли прокручивать вниз
         const wasAtBottom = messageList.scrollTop + messageList.clientHeight >= messageList.scrollHeight - 10;
@@ -500,13 +501,14 @@ async function updateChat() {
                         const showTime = index === group.messages.length - 1;
                         
                         // Стили для сообщений
-                        const messageBg = isUser ? 'bg-tg-button text-white' : 'bg-white border border-gray-200';
-                        const messageRadius = isUser ? 'rounded-2xl rounded-br-md' : 'rounded-2xl rounded-bl-md';
+                        const messageBubbleClass = isUser ? 'message-bubble user' : 'message-bubble partner';
+                        const messageBg = isUser ? 'bg-tg-button text-white' : 'bg-white';
+                        const messageRadius = isUser ? 'rounded-tl-2xl rounded-tr-2xl rounded-bl-2xl' : 'rounded-tr-2xl rounded-tl-2xl rounded-br-2xl';
                         
                         return `
-                            <div class="max-w-[80%] mb-1">
-                                <div class="${messageBg} ${messageRadius} px-3 py-2 shadow-sm">
-                                    <div>${messageText}</div>
+                            <div class="max-w-[85%] mb-1">
+                                <div class="${messageBubbleClass} ${messageBg} ${messageRadius} px-3 py-2 shadow-sm">
+                                    <div class="whitespace-pre-wrap break-words">${messageText}</div>
                                     ${showTime && time ? `<div class="text-xs opacity-70 text-right mt-1">${time}</div>` : ''}
                                 </div>
                             </div>
@@ -516,38 +518,65 @@ async function updateChat() {
             `;
         }).join('');
         
+        // Если нет сообщений, показываем приветственное сообщение
+        if (messageGroups.length === 0) {
+            messageList.innerHTML = `
+                <div class="flex justify-center my-8">
+                    <div class="bg-white rounded-lg p-4 shadow-sm text-center max-w-xs">
+                        <div class="text-lg font-medium mb-2">Чат начат!</div>
+                        <div class="text-tg-hint">Напишите первое сообщение, чтобы начать общение</div>
+                    </div>
+                </div>
+            `;
+        }
+        
         // Прокручиваем вниз только если пользователь уже был внизу
         if (wasAtBottom) {
             messageList.scrollTop = messageList.scrollHeight;
         }
     } catch (error) {
         console.error('Ошибка обновления чата:', error);
+        // Не показываем ошибку пользователю, просто логируем
     }
 }
 
 // Отправка сообщения
 async function sendMessage() {
     const message = inputMessage.value.trim();
+    
     if (!message) return;
     
     try {
-        const response = await fetch('/api/send', {
+        // Очищаем поле ввода
+        inputMessage.value = '';
+        
+        // Отправляем сообщение
+        const response = await fetch('/api/message', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, message })
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                userId: userId,
+                message: message,
+                timestamp: Date.now()
+            })
         });
         
-        const result = await response.json();
-        if (result.error) {
-            console.error('Ошибка отправки:', result.error);
+        const data = await response.json();
+        
+        if (data.error) {
+            console.error('Ошибка отправки сообщения:', data.error);
+            // Не показываем ошибку пользователю, просто логируем
             return;
         }
         
-        inputMessage.value = '';
-        await updateChat();
-        messageList.scrollTop = messageList.scrollHeight; // Прокрутка вниз после отправки
+        // Обновляем чат
+        updateChat();
+        
     } catch (error) {
         console.error('Ошибка отправки сообщения:', error);
+        // Не показываем ошибку пользователю, просто логируем
     }
 }
 

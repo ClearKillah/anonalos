@@ -247,66 +247,37 @@ app.get('/api/chat', (req, res) => {
     });
 });
 
-app.post('/api/send', (req, res) => {
-    const { userId, message } = req.body;
+// Отправка сообщения
+app.post('/api/message', (req, res) => {
+    const { userId, message, timestamp } = req.body;
     
-    // Проверка входных данных
     if (!userId || !message) {
-        return res.status(400).json({ error: 'Не указан userId или сообщение' });
+        return res.status(400).json({ error: 'Не указан userId или message' });
     }
     
+    // Получаем информацию о чате пользователя
     db.get('SELECT chat_id FROM users WHERE telegram_id = ?', [userId], (err, user) => {
         if (err) {
-            console.error('Ошибка при поиске пользователя:', err);
+            console.error('Ошибка при получении информации о пользователе:', err);
             return res.status(500).json({ error: 'Ошибка базы данных' });
         }
         
         if (!user || !user.chat_id) {
-            return res.status(400).json({ error: 'Чат не найден' });
+            console.error('Пользователь не в чате:', userId);
+            return res.status(400).json({ error: 'Вы не находитесь в чате' });
         }
         
-        // Проверяем, что чат существует
-        db.get('SELECT id FROM chats WHERE id = ?', [user.chat_id], (err, chat) => {
-            if (err || !chat) {
-                if (err) console.error('Ошибка при проверке чата:', err);
+        // Добавляем сообщение в базу данных
+        const currentTime = timestamp || Date.now();
+        db.run('INSERT INTO messages (chat_id, sender_id, message, timestamp) VALUES (?, ?, ?, ?)', 
+            [user.chat_id, userId, message, currentTime], (err) => {
+                if (err) {
+                    console.error('Ошибка при сохранении сообщения:', err);
+                    return res.status(500).json({ error: 'Ошибка базы данных' });
+                }
                 
-                // Если чат не найден, сбрасываем chat_id пользователя
-                db.run('UPDATE users SET chat_id = NULL WHERE telegram_id = ?', [userId], (err) => {
-                    if (err) console.error('Ошибка при сбросе chat_id:', err);
-                });
-                
-                return res.status(400).json({ error: 'Чат не найден или завершен' });
-            }
-            
-            const timestamp = Date.now();
-            
-            // Логируем отправку сообщения
-            console.log('Отправка сообщения:', {
-                chat_id: user.chat_id,
-                sender_id: userId,
-                message: message,
-                timestamp: timestamp
+                res.json({ success: true, timestamp: currentTime });
             });
-            
-            db.run('INSERT INTO messages (chat_id, sender_id, message, timestamp) VALUES (?, ?, ?, ?)', 
-                [user.chat_id, userId, message, timestamp], function(err) {
-                    if (err) {
-                        console.error('Ошибка при сохранении сообщения:', err);
-                        return res.status(500).json({ error: 'Ошибка базы данных' });
-                    }
-                    
-                    // Проверяем, что сообщение было успешно добавлено
-                    if (this.changes === 0) {
-                        console.error('Сообщение не было сохранено');
-                        return res.status(500).json({ error: 'Ошибка при сохранении сообщения' });
-                    }
-                    
-                    // Обновляем время активности пользователя
-                    db.run('UPDATE users SET last_activity_time = ? WHERE telegram_id = ?', [timestamp, userId]);
-                    
-                    res.status(200).json({ success: true, timestamp: timestamp });
-                });
-        });
     });
 });
 
@@ -523,8 +494,13 @@ function createChat(userId, partnerId, res) {
 
 // Обработка ошибок должна быть последней
 app.use((err, req, res, next) => {
-  console.error('Необработанная ошибка:', err);
-  res.status(500).send('Внутренняя ошибка сервера');
+    console.error('Необработанная ошибка:', err);
+    res.status(500).send('Внутренняя ошибка сервера');
+});
+
+// Обработка 404 ошибок
+app.use((req, res) => {
+    res.status(404).json({ error: 'Запрашиваемый ресурс не найден' });
 });
 
 app.listen(port, () => console.log(`Сервер запущен на порту ${port}`)); 
