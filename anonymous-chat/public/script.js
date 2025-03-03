@@ -224,31 +224,80 @@ async function startRandomChat() {
         
         // Запрашиваем чат
         console.log('Отправляем запрос на поиск собеседника');
-        const response = await fetch(`/api/chat?userId=${userId}`);
-        const data = await response.json();
         
-        console.log('Получен ответ от сервера:', data);
+        // Функция для периодического опроса сервера
+        const findPartner = async () => {
+            const response = await fetch(`/api/chat?userId=${userId}`);
+            const data = await response.json();
+            
+            console.log('Получен ответ от сервера:', data);
+            
+            // Проверяем ответ
+            if (data.error) {
+                console.error('Ошибка API:', data.error);
+                alert(data.error);
+                stopSearchTimer();
+                randomChat.classList.remove('hidden');
+                searchLoading.classList.add('hidden');
+                return false;
+            }
+            
+            // Если партнер найден
+            if (data.partner) {
+                // Останавливаем таймер
+                stopSearchTimer();
+                
+                // Переходим в чат
+                isInChat = true;
+                showScreen('chat');
+                updateChat();
+                return true;
+            }
+            
+            // Если партнер не найден, возвращаем false
+            return false;
+        };
         
-        // Проверяем ответ
-        if (data.error) {
-            console.error('Ошибка API:', data.error);
-            alert(data.error);
-            stopSearchTimer();
-            return;
+        // Первая попытка найти партнера
+        const found = await findPartner();
+        
+        // Если партнер не найден с первой попытки, запускаем периодический опрос
+        if (!found) {
+            console.log('Партнер не найден с первой попытки, запускаем периодический опрос');
+            
+            // Интервал для периодического опроса (каждые 3 секунды)
+            const intervalId = setInterval(async () => {
+                try {
+                    const found = await findPartner();
+                    
+                    // Если партнер найден, останавливаем интервал
+                    if (found) {
+                        clearInterval(intervalId);
+                    }
+                    
+                    // Если прошло больше 60 секунд, предлагаем пользователю остановить поиск
+                    if (Date.now() - searchStartTime > 60000 && !found) {
+                        if (confirm('Поиск занимает много времени. Хотите продолжить поиск?')) {
+                            // Пользователь хочет продолжить, обновляем время начала
+                            searchStartTime = Date.now();
+                        } else {
+                            // Пользователь хочет остановить поиск
+                            clearInterval(intervalId);
+                            stopSearchTimer();
+                            randomChat.classList.remove('hidden');
+                            searchLoading.classList.add('hidden');
+                        }
+                    }
+                } catch (error) {
+                    console.error('Ошибка при периодическом опросе:', error);
+                }
+            }, 3000);
         }
-        
-        // Останавливаем таймер
-        stopSearchTimer();
-        
-        // Переходим в чат
-        isInChat = true;
-        showScreen('chat');
-        updateChat();
     } catch (error) {
         console.error('Ошибка при начале случайного чата:', error);
         alert('Не удалось начать случайный чат');
         
-        // Останавливаем таймер и возвращаем кнопку
+        // Восстанавливаем интерфейс
         stopSearchTimer();
         randomChat.classList.remove('hidden');
         searchLoading.classList.add('hidden');

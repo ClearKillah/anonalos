@@ -13,7 +13,30 @@ const publicPath = path.join(__dirname, '../public');
 console.log('Serving static files from:', publicPath);
 app.use(express.static(publicPath));
 
+// Глобальный массив для хранения пользователей в ожидании
 let waitingUsers = [];
+
+// Очистка неактивных пользователей из списка ожидания каждые 5 минут
+setInterval(() => {
+    console.log('Очистка неактивных пользователей из списка ожидания');
+    console.log('Список ожидания до очистки:', waitingUsers);
+    
+    // Получаем всех пользователей, которые уже в чате
+    db.all('SELECT telegram_id FROM users WHERE chat_id IS NOT NULL', [], (err, users) => {
+        if (err) {
+            console.error('Ошибка при получении пользователей в чате:', err);
+            return;
+        }
+        
+        // Создаем массив ID пользователей в чате
+        const usersInChat = users.map(user => user.telegram_id);
+        
+        // Удаляем из списка ожидания пользователей, которые уже в чате
+        waitingUsers = waitingUsers.filter(id => !usersInChat.includes(id));
+        
+        console.log('Список ожидания после очистки:', waitingUsers);
+    });
+}, 5 * 60 * 1000);
 
 // Проверка и регистрация никнейма
 app.post('/api/register', (req, res) => {
@@ -334,6 +357,7 @@ app.post('/api/chat/end', (req, res) => {
 
 function matchPartner(userId, res) {
     console.log('Поиск партнера для:', userId);
+    console.log('Текущий список ожидания:', waitingUsers);
     
     // Проверяем, что userId валидный
     if (!userId) {
@@ -341,62 +365,119 @@ function matchPartner(userId, res) {
         return res.status(400).json({ error: 'Невалидный userId' });
     }
     
-    // Сначала проверяем, есть ли пользователи в списке ожидания
-    if (waitingUsers.length > 0) {
-        // Фильтруем список, исключая текущего пользователя
-        const availableUsers = waitingUsers.filter(id => id !== userId);
-        
-        if (availableUsers.length > 0) {
-            // Берем случайного пользователя из списка ожидания
-            const randomIndex = Math.floor(Math.random() * availableUsers.length);
-            const partnerId = availableUsers[randomIndex];
-            
-            console.log('Найден партнер из списка ожидания:', partnerId);
-            
-            // Удаляем обоих пользователей из списка ожидания
-            waitingUsers = waitingUsers.filter(id => id !== userId && id !== partnerId);
-            
-            // Создаем чат
-            createChat(userId, partnerId, res);
-            return;
-        }
-    }
+    // Обновляем время активности пользователя
+    db.run('UPDATE users SET last_activity_time = ? WHERE telegram_id = ?', 
+        [Date.now(), userId], (err) => {
+            if (err) console.error('Ошибка при обновлении времени активности:', err);
+        });
     
-    // Если в списке ожидания никого нет, ищем в базе данных
-    db.get('SELECT telegram_id FROM users WHERE chat_id IS NULL AND telegram_id != ? AND last_activity_time > ? LIMIT 1', 
-        [userId, Date.now() - 3600000], // Ищем активных пользователей за последний час
-        (err, partner) => {
-            if (err) {
-                console.error('Ошибка при поиске партнера:', err);
-                return res.status(500).json({ error: 'Ошибка базы данных' });
-            }
-            
-            if (!partner) {
-                console.log('Партнер не найден, добавляем в список ожидания:', userId);
-                
-                // Добавляем или обновляем пользователя в БД
-                db.run('INSERT OR REPLACE INTO users (telegram_id, chat_id, last_activity_time) VALUES (?, NULL, ?)', 
-                    [userId, Date.now()], (err) => {
-                        if (err) console.error('Ошибка при добавлении пользователя:', err);
+    // Проверяем, не находится ли пользователь уже в чате
+    db.get('SELECT chat_id FROM users WHERE telegram_id = ?', [userId], (err, user) => {
+        if (err) {
+            console.error('Ошибка при проверке статуса пользователя:', err);
+            return res.status(500).json({ error: 'Ошибка базы данных' });
+        }
+        
+        if (user && user.chat_id) {
+            console.log('Пользователь уже в чате:', userId);
+            // Получаем информацию о чате
+            db.get('SELECT user1_id, user2_id FROM chats WHERE id = ?', [user.chat_id], (err, chat) => {
+                if (err || !chat) {
+                    console.error('Ошибка при получении информации о чате:', err);
+                    // Сбрасываем chat_id и ищем нового партнера
+                    db.run('UPDATE users SET chat_id = NULL WHERE telegram_id = ?', [userId], (err) => {
+                        if (err) console.error('Ошибка при сбросе chat_id:', err);
+                        // Рекурсивно вызываем matchPartner после сброса
+                        matchPartner(userId, res);
                     });
-                    
-                // Добавляем в список ожидания, если его там еще нет
-                if (!waitingUsers.includes(userId)) {
-                    waitingUsers.push(userId);
-                    console.log('Текущий список ожидания:', waitingUsers);
+                    return;
                 }
                 
-                return res.json({ partner: null, messages: [] });
+                // Определяем ID партнера
+                const partnerId = chat.user1_id === userId ? chat.user2_id : chat.user1_id;
+                
+                // Получаем никнейм партнера
+                db.get('SELECT nickname FROM users WHERE telegram_id = ?', [partnerId], (err, partner) => {
+                    if (err) {
+                        console.error('Ошибка при получении никнейма партнера:', err);
+                        return res.status(500).json({ error: 'Ошибка базы данных' });
+                    }
+                    
+                    // Получаем сообщения
+                    db.all('SELECT sender_id, message, timestamp FROM messages WHERE chat_id = ? ORDER BY timestamp', 
+                        [user.chat_id], (err, messages) => {
+                            if (err) {
+                                console.error('Ошибка при получении сообщений:', err);
+                                return res.status(500).json({ error: 'Ошибка базы данных' });
+                            }
+                            
+                            res.json({
+                                partner: partnerId,
+                                partnerNickname: partner ? partner.nickname : 'Unknown',
+                                messages: messages || []
+                            });
+                        });
+                });
+            });
+            return;
+        }
+        
+        // Сначала проверяем, есть ли пользователи в списке ожидания
+        if (waitingUsers.length > 0) {
+            // Фильтруем список, исключая текущего пользователя
+            const availableUsers = waitingUsers.filter(id => id !== userId);
+            
+            if (availableUsers.length > 0) {
+                // Берем случайного пользователя из списка ожидания
+                const randomIndex = Math.floor(Math.random() * availableUsers.length);
+                const partnerId = availableUsers[randomIndex];
+                
+                console.log('Найден партнер из списка ожидания:', partnerId);
+                
+                // Удаляем обоих пользователей из списка ожидания
+                waitingUsers = waitingUsers.filter(id => id !== userId && id !== partnerId);
+                
+                // Создаем чат
+                createChat(userId, partnerId, res);
+                return;
             }
-            
-            console.log('Найден партнер из БД:', partner.telegram_id);
-            
-            // Удаляем обоих пользователей из списка ожидания
-            waitingUsers = waitingUsers.filter(id => id !== userId && id !== partner.telegram_id);
-            
-            // Создаем чат
-            createChat(userId, partner.telegram_id, res);
-        });
+        }
+        
+        // Если в списке ожидания никого нет, ищем в базе данных
+        db.get('SELECT telegram_id FROM users WHERE chat_id IS NULL AND telegram_id != ? LIMIT 1', 
+            [userId], (err, partner) => {
+                if (err) {
+                    console.error('Ошибка при поиске партнера:', err);
+                    return res.status(500).json({ error: 'Ошибка базы данных' });
+                }
+                
+                if (!partner) {
+                    console.log('Партнер не найден, добавляем в список ожидания:', userId);
+                    
+                    // Добавляем или обновляем пользователя в БД
+                    db.run('UPDATE users SET chat_id = NULL WHERE telegram_id = ?', 
+                        [userId], (err) => {
+                            if (err) console.error('Ошибка при обновлении пользователя:', err);
+                        });
+                        
+                    // Добавляем в список ожидания, если его там еще нет
+                    if (!waitingUsers.includes(userId)) {
+                        waitingUsers.push(userId);
+                        console.log('Текущий список ожидания после добавления:', waitingUsers);
+                    }
+                    
+                    return res.json({ partner: null, messages: [] });
+                }
+                
+                console.log('Найден партнер из БД:', partner.telegram_id);
+                
+                // Удаляем обоих пользователей из списка ожидания
+                waitingUsers = waitingUsers.filter(id => id !== userId && id !== partner.telegram_id);
+                
+                // Создаем чат
+                createChat(userId, partner.telegram_id, res);
+            });
+    });
 }
 
 // Вспомогательная функция для создания чата
