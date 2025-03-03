@@ -227,37 +227,38 @@ async function startRandomChat() {
         
         // Функция для периодического опроса сервера
         const findPartner = async () => {
-            const response = await fetch(`/api/chat?userId=${userId}`);
-            const data = await response.json();
-            
-            console.log('Получен ответ от сервера:', data);
-            
-            // Проверяем ответ
-            if (data.error) {
-                console.error('Ошибка API:', data.error);
-                // Убираем алерт, чтобы не мешать пользователю
-                // alert(data.error);
-                console.log('Ошибка при поиске собеседника:', data.error);
-                stopSearchTimer();
-                randomChat.classList.remove('hidden');
-                searchLoading.classList.add('hidden');
+            try {
+                const response = await fetch(`/api/chat?userId=${userId}`);
+                const data = await response.json();
+                
+                console.log('Получен ответ от сервера:', data);
+                
+                // Проверяем ответ
+                if (data.error) {
+                    console.error('Ошибка API:', data.error);
+                    // Убираем алерт, чтобы не мешать пользователю
+                    console.log('Ошибка при поиске собеседника:', data.error);
+                    return false;
+                }
+                
+                // Если партнер найден
+                if (data.partner) {
+                    // Останавливаем таймер
+                    stopSearchTimer();
+                    
+                    // Переходим в чат
+                    isInChat = true;
+                    showScreen('chat');
+                    updateChat();
+                    return true;
+                }
+                
+                // Если партнер не найден, возвращаем false
+                return false;
+            } catch (error) {
+                console.error('Ошибка при запросе к серверу:', error);
                 return false;
             }
-            
-            // Если партнер найден
-            if (data.partner) {
-                // Останавливаем таймер
-                stopSearchTimer();
-                
-                // Переходим в чат
-                isInChat = true;
-                showScreen('chat');
-                updateChat();
-                return true;
-            }
-            
-            // Если партнер не найден, возвращаем false
-            return false;
         };
         
         // Первая попытка найти партнера
@@ -267,7 +268,7 @@ async function startRandomChat() {
         if (!found) {
             console.log('Партнер не найден с первой попытки, запускаем периодический опрос');
             
-            // Интервал для периодического опроса (каждые 3 секунды)
+            // Интервал для периодического опроса (каждые 2 секунды)
             const intervalId = setInterval(async () => {
                 try {
                     const found = await findPartner();
@@ -293,11 +294,10 @@ async function startRandomChat() {
                 } catch (error) {
                     console.error('Ошибка при периодическом опросе:', error);
                 }
-            }, 3000);
+            }, 2000);
         }
     } catch (error) {
         console.error('Ошибка при начале случайного чата:', error);
-        alert('Не удалось начать случайный чат');
         
         // Восстанавливаем интерфейс
         stopSearchTimer();
@@ -506,10 +506,11 @@ async function updateChat() {
                         const messageBubbleClass = isUser ? 'message-bubble user' : 'message-bubble partner';
                         const messageBg = isUser ? 'bg-tg-button text-white' : 'bg-white text-black';
                         const messageRadius = isUser ? 'rounded-tl-2xl rounded-tr-2xl rounded-bl-2xl' : 'rounded-tr-2xl rounded-tl-2xl rounded-br-2xl';
+                        const shadowClass = 'shadow-sm';
                         
                         return `
                             <div class="max-w-[85%] mb-1">
-                                <div class="${messageBubbleClass} ${messageBg} ${messageRadius} px-3 py-2 shadow-sm">
+                                <div class="${messageBubbleClass} ${messageBg} ${messageRadius} ${shadowClass} px-3 py-2">
                                     <div class="whitespace-pre-wrap break-words">${messageText}</div>
                                     ${showTime && time ? `<div class="text-xs ${isUser ? 'text-white opacity-70' : 'text-gray-500'} text-right mt-1">${time}</div>` : ''}
                                 </div>
