@@ -235,7 +235,9 @@ async function startRandomChat() {
             // Проверяем ответ
             if (data.error) {
                 console.error('Ошибка API:', data.error);
-                alert(data.error);
+                // Убираем алерт, чтобы не мешать пользователю
+                // alert(data.error);
+                console.log('Ошибка при поиске собеседника:', data.error);
                 stopSearchTimer();
                 randomChat.classList.remove('hidden');
                 searchLoading.classList.add('hidden');
@@ -502,14 +504,14 @@ async function updateChat() {
                         
                         // Стили для сообщений
                         const messageBubbleClass = isUser ? 'message-bubble user' : 'message-bubble partner';
-                        const messageBg = isUser ? 'bg-tg-button text-white' : 'bg-white';
+                        const messageBg = isUser ? 'bg-tg-button text-white' : 'bg-white text-black';
                         const messageRadius = isUser ? 'rounded-tl-2xl rounded-tr-2xl rounded-bl-2xl' : 'rounded-tr-2xl rounded-tl-2xl rounded-br-2xl';
                         
                         return `
                             <div class="max-w-[85%] mb-1">
                                 <div class="${messageBubbleClass} ${messageBg} ${messageRadius} px-3 py-2 shadow-sm">
                                     <div class="whitespace-pre-wrap break-words">${messageText}</div>
-                                    ${showTime && time ? `<div class="text-xs opacity-70 text-right mt-1">${time}</div>` : ''}
+                                    ${showTime && time ? `<div class="text-xs ${isUser ? 'text-white opacity-70' : 'text-gray-500'} text-right mt-1">${time}</div>` : ''}
                                 </div>
                             </div>
                         `;

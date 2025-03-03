@@ -78,16 +78,36 @@ app.get('/api/user', (req, res) => {
         return res.status(400).json({ error: 'Не указан userId' });
     }
     
-    db.get('SELECT nickname, chat_id FROM users WHERE telegram_id = ?', [userId], (err, user) => {
+    // Проверяем, существует ли пользователь, если нет - создаем
+    db.get('SELECT * FROM users WHERE telegram_id = ?', [userId], (err, user) => {
         if (err) {
             console.error('Ошибка при получении информации о пользователе:', err);
             return res.status(500).json({ error: 'Ошибка базы данных' });
         }
         
+        if (!user) {
+            // Создаем нового пользователя
+            db.run('INSERT INTO users (telegram_id, last_activity_time) VALUES (?, ?)', 
+                [userId, Date.now()], (err) => {
+                    if (err) {
+                        console.error('Ошибка при создании пользователя:', err);
+                        return res.status(500).json({ error: 'Ошибка базы данных' });
+                    }
+                    
+                    // Возвращаем информацию о новом пользователе
+                    res.json({ 
+                        hasNickname: false,
+                        nickname: null,
+                        inChat: false
+                    });
+                });
+            return;
+        }
+        
         res.json({ 
-            hasNickname: !!user?.nickname,
-            nickname: user?.nickname || null,
-            inChat: !!user?.chat_id
+            hasNickname: !!user.nickname,
+            nickname: user.nickname || null,
+            inChat: !!user.chat_id
         });
     });
 });
@@ -336,20 +356,36 @@ function matchPartner(userId, res) {
         return res.status(400).json({ error: 'Невалидный userId' });
     }
     
-    // Обновляем время активности пользователя
-    db.run('UPDATE users SET last_activity_time = ? WHERE telegram_id = ?', 
-        [Date.now(), userId], (err) => {
-            if (err) console.error('Ошибка при обновлении времени активности:', err);
-        });
-    
-    // Проверяем, не находится ли пользователь уже в чате
-    db.get('SELECT chat_id FROM users WHERE telegram_id = ?', [userId], (err, user) => {
+    // Проверяем, существует ли пользователь, если нет - создаем
+    db.get('SELECT * FROM users WHERE telegram_id = ?', [userId], (err, user) => {
         if (err) {
-            console.error('Ошибка при проверке статуса пользователя:', err);
+            console.error('Ошибка при проверке пользователя:', err);
             return res.status(500).json({ error: 'Ошибка базы данных' });
         }
         
-        if (user && user.chat_id) {
+        if (!user) {
+            // Создаем нового пользователя
+            db.run('INSERT INTO users (telegram_id, last_activity_time) VALUES (?, ?)', 
+                [userId, Date.now()], (err) => {
+                    if (err) {
+                        console.error('Ошибка при создании пользователя:', err);
+                        return res.status(500).json({ error: 'Ошибка базы данных' });
+                    }
+                    
+                    // Рекурсивно вызываем matchPartner после создания пользователя
+                    matchPartner(userId, res);
+                });
+            return;
+        }
+        
+        // Обновляем время активности пользователя
+        db.run('UPDATE users SET last_activity_time = ? WHERE telegram_id = ?', 
+            [Date.now(), userId], (err) => {
+                if (err) console.error('Ошибка при обновлении времени активности:', err);
+            });
+        
+        // Проверяем, не находится ли пользователь уже в чате
+        if (user.chat_id) {
             console.log('Пользователь уже в чате:', userId);
             // Получаем информацию о чате
             db.get('SELECT user1_id, user2_id FROM chats WHERE id = ?', [user.chat_id], (err, chat) => {
@@ -384,7 +420,7 @@ function matchPartner(userId, res) {
                             
                             res.json({
                                 partner: partnerId,
-                                partnerNickname: partner ? partner.nickname : 'Unknown',
+                                partnerNickname: partner ? partner.nickname : 'Аноним',
                                 messages: messages || []
                             });
                         });

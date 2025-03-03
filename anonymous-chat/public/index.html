@@ -120,6 +120,17 @@
             opacity: .3;
             transition: 0s;
         }
+        
+        /* Исправление для темной темы */
+        @media (prefers-color-scheme: dark) {
+            .message-bubble.partner:after {
+                background: #333;
+            }
+            .message-bubble.partner {
+                background: #333;
+                color: #fff;
+            }
+        }
     </style>
 </head>
 <body class="no-bounce bg-tg-bg text-tg-text font-sans">
