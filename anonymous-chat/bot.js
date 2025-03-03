@@ -1,6 +1,7 @@
 const TelegramBot = require('node-telegram-bot-api');
-const token = process.env.TELEGRAM_BOT_TOKEN; // Задайте в Railway
-const webAppUrl = process.env.WEB_APP_URL;    // Задайте в Railway
+// Непосредственно указываем значения для теста
+const token = '8039344227:AAEDCP_902a3r52JIdM9REqUyPx-p2IVtxA'; // Telegram Bot Token
+const webAppUrl = 'https://anonalos-production.up.railway.app/'; // Railway URL
 const bot = new TelegramBot(token, { polling: true });
 
 bot.onText(/\/start/, (msg) => {

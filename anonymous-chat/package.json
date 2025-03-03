@@ -1,14 +1,18 @@
 {
     "name": "anonymous-chat",
     "version": "1.0.0",
+    "engines": {
+        "node": ">=16.0.0 <19.0.0"
+    },
     "scripts": {
         "start": "node server/index.js",
-        "bot": "node bot.js"
+        "bot": "node bot.js",
+        "postinstall": "npm install --prefix server"
     },
     "dependencies": {
         "express": "^4.18.2",
         "sqlite3": "^5.1.6",
         "node-telegram-bot-api": "^0.66.0",
-        "nanoid": "^4.0.0"
+        "nanoid": "^3.3.4"
     }
 } 
