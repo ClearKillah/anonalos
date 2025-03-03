@@ -1,6 +1,25 @@
 const TelegramWebApp = window.Telegram.WebApp;
 TelegramWebApp.ready();
-const userId = TelegramWebApp.initDataUnsafe.user.id;
+
+// Получаем ID пользователя из Telegram
+let userId;
+try {
+    userId = TelegramWebApp.initDataUnsafe.user.id;
+    console.log('Получен userId из Telegram:', userId);
+    
+    // Проверка на валидность userId
+    if (!userId) {
+        console.error('userId не определен из Telegram WebApp');
+        // Используем временный ID для тестирования
+        userId = 'test_user_' + Math.floor(Math.random() * 1000000);
+        console.log('Создан временный userId для тестирования:', userId);
+    }
+} catch (error) {
+    console.error('Ошибка при получении userId из Telegram:', error);
+    // Используем временный ID для тестирования
+    userId = 'test_user_' + Math.floor(Math.random() * 1000000);
+    console.log('Создан временный userId для тестирования:', userId);
+}
 
 // Функция для принудительного полноэкранного режима
 function forceFullscreen() {
@@ -86,8 +105,26 @@ async function init() {
         // Сразу разворачиваем на весь экран
         forceFullscreen();
         
+        console.log('Инициализация приложения, userId:', userId);
+        
+        // Проверяем, что userId определен
+        if (!userId) {
+            console.error('userId не определен при инициализации');
+            showScreen('nickname');
+            return;
+        }
+        
         const response = await fetch(`/api/user?userId=${userId}`);
+        
+        // Проверяем статус ответа
+        if (!response.ok) {
+            console.error('Ошибка API при инициализации:', response.status, response.statusText);
+            showScreen('nickname');
+            return;
+        }
+        
         const data = await response.json();
+        console.log('Получены данные пользователя:', data);
         
         if (data.hasNickname) {
             userNickname = data.nickname;
@@ -107,6 +144,8 @@ async function init() {
         }
     } catch (error) {
         console.error('Ошибка инициализации:', error);
+        // В случае ошибки показываем экран никнейма
+        showScreen('nickname');
     }
 }
 
@@ -177,8 +216,10 @@ async function saveNickname() {
 
 // Начать случайный чат
 async function startRandomChat() {
+    console.log('Функция startRandomChat вызвана');
     try {
         // Показываем индикатор загрузки и скрываем кнопку
+        console.log('Показываем индикатор загрузки');
         randomChat.classList.add('hidden');
         searchLoading.classList.remove('hidden');
         
@@ -187,7 +228,19 @@ async function startRandomChat() {
         startSearchTimer();
         
         // Запрашиваем чат
-        await fetch(`/api/chat?userId=${userId}`);
+        console.log('Отправляем запрос на поиск собеседника');
+        const response = await fetch(`/api/chat?userId=${userId}`);
+        const data = await response.json();
+        
+        console.log('Получен ответ от сервера:', data);
+        
+        // Проверяем ответ
+        if (data.error) {
+            console.error('Ошибка API:', data.error);
+            alert(data.error);
+            stopSearchTimer();
+            return;
+        }
         
         // Останавливаем таймер
         stopSearchTimer();
@@ -457,9 +510,21 @@ nicknameInput.addEventListener('keydown', (event) => {
     }
 });
 
-randomChat.addEventListener('click', startRandomChat);
-findUser.addEventListener('click', () => showScreen('search'));
-endChat.addEventListener('click', endCurrentChat);
+// Добавляем обработчик с выводом в консоль для отладки
+randomChat.addEventListener('click', function() {
+    console.log('Кнопка "Найти собеседника" нажата');
+    startRandomChat();
+});
+
+findUser.addEventListener('click', () => {
+    console.log('Кнопка "Новый чат" нажата');
+    showScreen('search');
+});
+
+endChat.addEventListener('click', function() {
+    console.log('Кнопка "Выход" нажата');
+    endCurrentChat();
+});
 
 sendButton.addEventListener('click', sendMessage);
 inputMessage.addEventListener('keydown', (event) => {
