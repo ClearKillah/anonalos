@@ -91,7 +91,7 @@ html, body {
 /* Стили для экрана поиска */
 .header-search {
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
     align-items: center;
     height: 60px;
     background: var(--bg-color);
@@ -101,28 +101,50 @@ html, body {
     box-sizing: border-box;
 }
 
-.header-search button {
-    background: var(--button-color);
-    color: var(--button-text-color);
-    border: none;
-    border-radius: 4px;
-    padding: 8px 12px;
-}
-
 .header-search .title {
     font-weight: bold;
-    font-size: 18px;
+    font-size: 20px;
 }
 
 .search-container {
     padding: 15px;
     display: flex;
     flex-direction: column;
-    gap: 15px;
+    justify-content: center;
+    align-items: center;
     flex-grow: 1;
     overflow-y: auto;
     box-sizing: border-box;
     width: 100%;
+    height: calc(100% - 60px);
+}
+
+.start-random-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    width: 100%;
+}
+
+.big-button {
+    padding: 16px 24px;
+    background: var(--button-color);
+    color: var(--button-text-color);
+    border: none;
+    border-radius: 10px;
+    font-size: 18px;
+    font-weight: bold;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    transition: all 0.2s ease;
+    cursor: pointer;
+    width: 80%;
+    max-width: 300px;
+}
+
+.big-button:active {
+    transform: scale(0.98);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 #search-input {

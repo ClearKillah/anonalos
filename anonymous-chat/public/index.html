@@ -24,20 +24,19 @@
     <!-- Экран поиска собеседника -->
     <div id="search-screen" class="screen hidden">
         <div class="header-search">
-            <button id="back-to-chat">Назад</button>
-            <div class="title">Поиск собеседника</div>
-            <button id="random-chat">Случайный</button>
+            <div class="title">Анонимный чат</div>
         </div>
         <div class="search-container">
-            <input type="text" id="search-input" placeholder="Введите никнейм для поиска...">
-            <div id="search-results" class="results-container"></div>
+            <div class="start-random-container">
+                <button id="random-chat" class="big-button">Найти собеседника</button>
+            </div>
         </div>
     </div>
     
     <!-- Экран чата -->
     <div id="chat-screen" class="screen hidden">
         <div class="header">
-            <button id="find-user" class="header-button">Найти</button>
+            <button id="find-user" class="header-button">Новый чат</button>
             <span>Собеседник: <span id="partner">Ищем...</span></span>
             <button id="end-chat" class="header-button">Выход</button>
         </div>

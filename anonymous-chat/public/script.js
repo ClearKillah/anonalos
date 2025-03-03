@@ -7,6 +7,13 @@ function forceFullscreen() {
     // Расширяем приложение на весь экран
     TelegramWebApp.expand();
     
+    // Устанавливаем полноэкранный режим
+    if (TelegramWebApp.isExpanded) {
+        console.log('Приложение в полноэкранном режиме');
+    } else {
+        console.log('Не удалось развернуть приложение на весь экран');
+    }
+    
     // Принудительно устанавливаем высоту для контейнеров
     document.body.style.height = `${window.innerHeight}px`;
     document.querySelectorAll('.screen').forEach(screen => {
@@ -48,24 +55,20 @@ TelegramWebApp.enableClosingConfirmation();
 
 // DOM элементы
 const nicknameScreen = document.getElementById('nickname-screen');
-const searchScreen = document.getElementById('search-screen');
-const chatScreen = document.getElementById('chat-screen');
-
 const nicknameInput = document.getElementById('nickname-input');
 const nicknameSubmit = document.getElementById('nickname-submit');
 const nicknameError = document.getElementById('nickname-error');
 
-const searchInput = document.getElementById('search-input');
-const searchResults = document.getElementById('search-results');
-const backToChat = document.getElementById('back-to-chat');
+const searchScreen = document.getElementById('search-screen');
 const randomChat = document.getElementById('random-chat');
 
-const findUser = document.getElementById('find-user');
-const endChat = document.getElementById('end-chat');
+const chatScreen = document.getElementById('chat-screen');
+const partnerSpan = document.getElementById('partner');
 const messageList = document.getElementById('message-list');
 const inputMessage = document.getElementById('input-message');
 const sendButton = document.getElementById('send-button');
-const partnerSpan = document.getElementById('partner');
+const findUser = document.getElementById('find-user');
+const endChat = document.getElementById('end-chat');
 
 // Состояние приложения
 let currentPartner = null;
@@ -76,6 +79,9 @@ let isInChat = false;
 // Инициализация
 async function init() {
     try {
+        // Сразу разворачиваем на весь экран
+        forceFullscreen();
+        
         const response = await fetch(`/api/user?userId=${userId}`);
         const data = await response.json();
         
@@ -156,74 +162,6 @@ async function saveNickname() {
     } catch (error) {
         console.error('Ошибка сохранения никнейма:', error);
         nicknameError.textContent = 'Ошибка при сохранении никнейма';
-    }
-}
-
-// Поиск пользователей по никнейму
-async function searchUsers() {
-    const query = searchInput.value.trim();
-    
-    if (!query) {
-        searchResults.innerHTML = '<div class="no-results">Введите никнейм для поиска</div>';
-        return;
-    }
-    
-    try {
-        const response = await fetch(`/api/users/search?query=${encodeURIComponent(query)}&userId=${userId}`);
-        const data = await response.json();
-        
-        if (data.error) {
-            searchResults.innerHTML = `<div class="error">${data.error}</div>`;
-            return;
-        }
-        
-        if (!data.users || data.users.length === 0) {
-            searchResults.innerHTML = '<div class="no-results">Пользователи не найдены</div>';
-            return;
-        }
-        
-        // Отображаем результаты
-        searchResults.innerHTML = data.users.map(user => `
-            <div class="user-result">
-                <div class="nickname">${user.nickname}</div>
-                <button class="start-chat" data-id="${user.telegram_id}">Начать чат</button>
-            </div>
-        `).join('');
-        
-        // Добавляем обработчики для кнопок
-        document.querySelectorAll('.start-chat').forEach(button => {
-            button.addEventListener('click', () => startChatWithUser(button.dataset.id));
-        });
-        
-    } catch (error) {
-        console.error('Ошибка поиска пользователей:', error);
-        searchResults.innerHTML = '<div class="error">Ошибка при поиске пользователей</div>';
-    }
-}
-
-// Начать чат с конкретным пользователем
-async function startChatWithUser(partnerId) {
-    try {
-        const response = await fetch('/api/chat/start', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, partnerId })
-        });
-        
-        const data = await response.json();
-        
-        if (data.error) {
-            alert(data.error);
-            return;
-        }
-        
-        isInChat = true;
-        showScreen('chat');
-        updateChat();
-        
-    } catch (error) {
-        console.error('Ошибка при начале чата:', error);
-        alert('Не удалось начать чат');
     }
 }
 
@@ -466,18 +404,6 @@ nicknameInput.addEventListener('keydown', (event) => {
     }
 });
 
-searchInput.addEventListener('input', () => {
-    if (searchInput.value.trim().length >= 2) {
-        searchUsers();
-    }
-});
-
-backToChat.addEventListener('click', () => {
-    if (isInChat) {
-        showScreen('chat');
-    }
-});
-
 randomChat.addEventListener('click', startRandomChat);
 findUser.addEventListener('click', () => showScreen('search'));
 endChat.addEventListener('click', endCurrentChat);
@@ -491,7 +417,10 @@ inputMessage.addEventListener('keydown', (event) => {
 });
 
 // Дополнительные обработчики событий для полноэкранного режима
-window.addEventListener('load', forceFullscreen);
+window.addEventListener('load', () => {
+    init();
+    forceFullscreen();
+});
 window.addEventListener('resize', forceFullscreen);
 window.addEventListener('orientationchange', forceFullscreen);
 
@@ -518,7 +447,4 @@ setInterval(() => {
     if (currentScreen === 'chat') {
         updateChat();
     }
-}, 2000);
-
-// Запуск приложения
-init(); 
+}, 2000); 
