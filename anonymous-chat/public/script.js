@@ -2,8 +2,22 @@ const TelegramWebApp = window.Telegram.WebApp;
 TelegramWebApp.ready();
 const userId = TelegramWebApp.initDataUnsafe.user.id;
 
-// Расширяем приложение на весь экран
-TelegramWebApp.expand();
+// Функция для принудительного полноэкранного режима
+function forceFullscreen() {
+    // Расширяем приложение на весь экран
+    TelegramWebApp.expand();
+    
+    // Принудительно устанавливаем высоту для контейнеров
+    document.body.style.height = `${window.innerHeight}px`;
+    document.querySelectorAll('.screen').forEach(screen => {
+        screen.style.height = `${window.innerHeight}px`;
+    });
+    
+    // Пересчитываем высоту списка сообщений
+    if (currentScreen === 'chat') {
+        adjustHeight();
+    }
+}
 
 // Настраиваем цвета для соответствия теме Telegram
 document.documentElement.style.setProperty('--bg-color', TelegramWebApp.themeParams.bg_color);
@@ -14,7 +28,11 @@ document.documentElement.style.setProperty('--button-color', TelegramWebApp.them
 document.documentElement.style.setProperty('--button-text-color', TelegramWebApp.themeParams.button_text_color || '#ffffff');
 
 // Устанавливаем обработчик закрытия приложения
-TelegramWebApp.onEvent('viewportChanged', adjustHeight);
+TelegramWebApp.onEvent('viewportChanged', () => {
+    forceFullscreen();
+    adjustHeight();
+});
+
 TelegramWebApp.onEvent('themeChanged', () => {
     // Обновляем цвета при изменении темы
     document.documentElement.style.setProperty('--bg-color', TelegramWebApp.themeParams.bg_color);
@@ -379,6 +397,11 @@ inputMessage.addEventListener('keydown', (event) => {
         sendMessage();
     }
 });
+
+// Дополнительные обработчики событий для полноэкранного режима
+window.addEventListener('load', forceFullscreen);
+window.addEventListener('resize', forceFullscreen);
+window.addEventListener('orientationchange', forceFullscreen);
 
 // Обработка изменения размера окна
 window.addEventListener('resize', () => {
