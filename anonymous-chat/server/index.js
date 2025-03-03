@@ -169,6 +169,17 @@ app.get('/api/chat', (req, res) => {
             
             // Если чат не найден или поврежден, сбрасываем состояние пользователя
             if (!chat) {
+                console.log('Чат не найден, сбрасываем chat_id для пользователя:', userId);
+                db.run('UPDATE users SET chat_id = NULL WHERE telegram_id = ?', [userId], (err) => {
+                    if (err) console.error('Ошибка при сбросе chat_id:', err);
+                    return matchPartner(userId, res);
+                });
+                return;
+            }
+            
+            // Проверяем, что оба ID пользователей существуют
+            if (!chat.user1_id || !chat.user2_id) {
+                console.error('Поврежденные данные чата:', chat);
                 db.run('UPDATE users SET chat_id = NULL WHERE telegram_id = ?', [userId], (err) => {
                     if (err) console.error('Ошибка при сбросе chat_id:', err);
                     return matchPartner(userId, res);
@@ -192,13 +203,14 @@ app.get('/api/chat', (req, res) => {
                             return res.status(500).json({ error: 'Ошибка базы данных' });
                         }
                         
-                        // Убедимся, что у всех сообщений есть timestamp
+                        // Убедимся, что у всех сообщений есть timestamp и другие необходимые поля
                         const processedMessages = (messages || []).map(msg => {
-                            // Если timestamp отсутствует, добавляем текущее время
-                            if (!msg.timestamp) {
-                                msg.timestamp = Date.now();
-                            }
-                            return msg;
+                            const result = {
+                                sender_id: msg.sender_id || userId,
+                                message: msg.message || '',
+                                timestamp: msg.timestamp || Date.now()
+                            };
+                            return result;
                         });
                         
                         res.json({ 
@@ -234,22 +246,42 @@ app.post('/api/send', (req, res) => {
         db.get('SELECT id FROM chats WHERE id = ?', [user.chat_id], (err, chat) => {
             if (err || !chat) {
                 if (err) console.error('Ошибка при проверке чата:', err);
+                
+                // Если чат не найден, сбрасываем chat_id пользователя
+                db.run('UPDATE users SET chat_id = NULL WHERE telegram_id = ?', [userId], (err) => {
+                    if (err) console.error('Ошибка при сбросе chat_id:', err);
+                });
+                
                 return res.status(400).json({ error: 'Чат не найден или завершен' });
             }
             
             const timestamp = Date.now();
             
+            // Логируем отправку сообщения
+            console.log('Отправка сообщения:', {
+                chat_id: user.chat_id,
+                sender_id: userId,
+                message: message,
+                timestamp: timestamp
+            });
+            
             db.run('INSERT INTO messages (chat_id, sender_id, message, timestamp) VALUES (?, ?, ?, ?)', 
-                [user.chat_id, userId, message, timestamp], (err) => {
+                [user.chat_id, userId, message, timestamp], function(err) {
                     if (err) {
                         console.error('Ошибка при сохранении сообщения:', err);
                         return res.status(500).json({ error: 'Ошибка базы данных' });
                     }
                     
+                    // Проверяем, что сообщение было успешно добавлено
+                    if (this.changes === 0) {
+                        console.error('Сообщение не было сохранено');
+                        return res.status(500).json({ error: 'Ошибка при сохранении сообщения' });
+                    }
+                    
                     // Обновляем время активности пользователя
                     db.run('UPDATE users SET last_activity_time = ? WHERE telegram_id = ?', [timestamp, userId]);
                     
-                    res.status(200).json({ success: true, timestamp });
+                    res.status(200).json({ success: true, timestamp: timestamp });
                 });
         });
     });

@@ -295,14 +295,24 @@ function formatTime(timestamp) {
     if (!timestamp) return '';
     
     try {
-        const date = new Date(parseInt(timestamp));
+        // Проверяем, является ли timestamp строкой и пытаемся преобразовать в число
+        const timestampNum = typeof timestamp === 'string' ? parseInt(timestamp, 10) : timestamp;
+        
         // Проверка на валидную дату
-        if (isNaN(date.getTime())) {
+        if (isNaN(timestampNum)) {
+            console.error('Невалидный timestamp:', timestamp);
             return '';
         }
+        
+        const date = new Date(timestampNum);
+        if (isNaN(date.getTime())) {
+            console.error('Невалидная дата из timestamp:', timestamp);
+            return '';
+        }
+        
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     } catch (error) {
-        console.error('Ошибка форматирования времени:', error);
+        console.error('Ошибка форматирования времени:', error, timestamp);
         return '';
     }
 }
@@ -319,6 +329,7 @@ function groupMessages(messages) {
     messages.forEach(msg => {
         // Проверяем наличие необходимых полей
         if (!msg || !msg.sender_id) {
+            console.error('Некорректное сообщение:', msg);
             return;
         }
         
@@ -374,8 +385,11 @@ async function updateChat() {
         // Проверяем наличие сообщений
         if (!data.messages || !Array.isArray(data.messages)) {
             console.error('Неверный формат сообщений:', data.messages);
-            return;
+            data.messages = []; // Устанавливаем пустой массив, чтобы избежать ошибок
         }
+        
+        // Логируем полученные сообщения для отладки
+        console.log('Полученные сообщения:', JSON.stringify(data.messages));
         
         // Группируем сообщения по отправителю
         const messageGroups = groupMessages(data.messages);
