@@ -2,6 +2,32 @@ const TelegramWebApp = window.Telegram.WebApp;
 TelegramWebApp.ready();
 const userId = TelegramWebApp.initDataUnsafe.user.id;
 
+// Расширяем приложение на весь экран
+TelegramWebApp.expand();
+
+// Настраиваем цвета для соответствия теме Telegram
+document.documentElement.style.setProperty('--bg-color', TelegramWebApp.themeParams.bg_color);
+document.documentElement.style.setProperty('--text-color', TelegramWebApp.themeParams.text_color);
+document.documentElement.style.setProperty('--hint-color', TelegramWebApp.themeParams.hint_color);
+document.documentElement.style.setProperty('--link-color', TelegramWebApp.themeParams.link_color);
+document.documentElement.style.setProperty('--button-color', TelegramWebApp.themeParams.button_color || '#2481cc');
+document.documentElement.style.setProperty('--button-text-color', TelegramWebApp.themeParams.button_text_color || '#ffffff');
+
+// Устанавливаем обработчик закрытия приложения
+TelegramWebApp.onEvent('viewportChanged', adjustHeight);
+TelegramWebApp.onEvent('themeChanged', () => {
+    // Обновляем цвета при изменении темы
+    document.documentElement.style.setProperty('--bg-color', TelegramWebApp.themeParams.bg_color);
+    document.documentElement.style.setProperty('--text-color', TelegramWebApp.themeParams.text_color);
+    document.documentElement.style.setProperty('--hint-color', TelegramWebApp.themeParams.hint_color);
+    document.documentElement.style.setProperty('--link-color', TelegramWebApp.themeParams.link_color);
+    document.documentElement.style.setProperty('--button-color', TelegramWebApp.themeParams.button_color || '#2481cc');
+    document.documentElement.style.setProperty('--button-text-color', TelegramWebApp.themeParams.button_text_color || '#ffffff');
+});
+
+// Отключаем прокрутку родительского окна
+TelegramWebApp.enableClosingConfirmation();
+
 // DOM элементы
 const nicknameScreen = document.getElementById('nickname-screen');
 const searchScreen = document.getElementById('search-screen');

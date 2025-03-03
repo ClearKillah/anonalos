@@ -1,3 +1,12 @@
+:root {
+    --bg-color: #ffffff;
+    --text-color: #000000;
+    --hint-color: #999999;
+    --link-color: #2481cc;
+    --button-color: #2481cc;
+    --button-text-color: #ffffff;
+}
+
 body {
     margin: 0;
     font-family: Arial, sans-serif;
@@ -5,7 +14,8 @@ body {
     overflow: hidden;
     position: fixed;
     width: 100%;
-    background-color: #f5f5f5;
+    background-color: var(--bg-color);
+    color: var(--text-color);
 }
 
 .screen {
@@ -14,9 +24,10 @@ body {
     left: 0;
     right: 0;
     bottom: 0;
-    background-color: #f5f5f5;
+    background-color: var(--bg-color);
     display: flex;
     flex-direction: column;
+    z-index: 1;
 }
 
 .hidden {
@@ -28,7 +39,7 @@ body {
     padding: 40px 20px;
     font-size: 24px;
     font-weight: bold;
-    color: #333;
+    color: var(--text-color);
 }
 
 .form-container {
@@ -43,12 +54,14 @@ body {
     border: 1px solid #ddd;
     border-radius: 8px;
     font-size: 16px;
+    background-color: var(--bg-color);
+    color: var(--text-color);
 }
 
 #nickname-submit {
     padding: 12px;
-    background: #007bff;
-    color: white;
+    background: var(--button-color);
+    color: var(--button-text-color);
     border: none;
     border-radius: 8px;
     font-size: 16px;
@@ -65,14 +78,14 @@ body {
     justify-content: space-between;
     align-items: center;
     height: 60px;
-    background: #f0f0f0;
+    background: var(--bg-color);
     padding: 0 10px;
-    border-bottom: 1px solid #ddd;
+    border-bottom: 1px solid rgba(0,0,0,0.1);
 }
 
 .header-search button {
-    background: #007bff;
-    color: white;
+    background: var(--button-color);
+    color: var(--button-text-color);
     border: none;
     border-radius: 4px;
     padding: 8px 12px;
@@ -97,6 +110,8 @@ body {
     border: 1px solid #ddd;
     border-radius: 8px;
     font-size: 16px;
+    background-color: var(--bg-color);
+    color: var(--text-color);
 }
 
 .results-container {
@@ -107,7 +122,7 @@ body {
 }
 
 .user-result {
-    background: white;
+    background: rgba(0,0,0,0.05);
     padding: 15px;
     border-radius: 8px;
     display: flex;
@@ -121,8 +136,8 @@ body {
 }
 
 .user-result button {
-    background: #28a745;
-    color: white;
+    background: var(--button-color);
+    color: var(--button-text-color);
     border: none;
     border-radius: 4px;
     padding: 8px 12px;
@@ -134,7 +149,7 @@ body {
     left: 0;
     right: 0;
     height: 50px;
-    background: #f0f0f0;
+    background: var(--bg-color);
     padding: 10px;
     text-align: center;
     z-index: 10;
@@ -142,11 +157,12 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    border-bottom: 1px solid rgba(0,0,0,0.1);
 }
 
 .header-button {
-    background: #007bff;
-    color: white;
+    background: var(--button-color);
+    color: var(--button-text-color);
     border: none;
     border-radius: 4px;
     padding: 6px 10px;
@@ -170,13 +186,13 @@ body {
     left: 0;
     right: 0;
     height: 50px;
-    background: white;
+    background: var(--bg-color);
     padding: 10px;
     display: flex;
     gap: 10px;
     z-index: 20;
     box-sizing: border-box;
-    border-top: 1px solid #eee;
+    border-top: 1px solid rgba(0,0,0,0.1);
 }
 
 #input-message {
@@ -184,12 +200,14 @@ body {
     padding: 5px;
     border: 1px solid #ccc;
     border-radius: 4px;
+    background-color: var(--bg-color);
+    color: var(--text-color);
 }
 
 button {
     padding: 5px 10px;
-    background: #007bff;
-    color: white;
+    background: var(--button-color);
+    color: var(--button-text-color);
     border: none;
     border-radius: 4px;
     min-width: 80px;
@@ -205,12 +223,12 @@ button {
 }
 
 .message.user {
-    background: #d1e7dd;
+    background: rgba(19, 137, 80, 0.2);
     float: right;
 }
 
 .message.partner {
-    background: #f8d7da;
+    background: rgba(113, 135, 222, 0.2);
     float: left;
 }
 
