@@ -290,6 +290,34 @@ function adjustHeight() {
     }
 }
 
+// Функция для форматирования времени
+function formatTime(timestamp) {
+    const date = new Date(parseInt(timestamp));
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+// Функция для группировки сообщений по отправителю
+function groupMessages(messages) {
+    const groups = [];
+    let currentGroup = null;
+    
+    messages.forEach(msg => {
+        // Если нет текущей группы или отправитель изменился, создаем новую группу
+        if (!currentGroup || currentGroup.sender_id !== msg.sender_id) {
+            currentGroup = {
+                sender_id: msg.sender_id,
+                messages: []
+            };
+            groups.push(currentGroup);
+        }
+        
+        // Добавляем сообщение в текущую группу
+        currentGroup.messages.push(msg);
+    });
+    
+    return groups;
+}
+
 // Обновление чата
 async function updateChat() {
     if (currentScreen !== 'chat') return;
@@ -323,12 +351,31 @@ async function updateChat() {
         // Проверка, нужно ли прокручивать вниз
         const wasAtBottom = messageList.scrollTop + messageList.clientHeight >= messageList.scrollHeight - 10;
         
-        // Обновляем сообщения
-        messageList.innerHTML = data.messages.map(msg => `
-            <div class="message ${msg.sender_id === userId ? 'user' : 'partner'}">
-                ${msg.message}
-            </div>
-        `).join('');
+        // Группируем сообщения по отправителю
+        const messageGroups = groupMessages(data.messages);
+        
+        // Создаем HTML для сообщений в стиле Telegram
+        messageList.innerHTML = messageGroups.map(group => {
+            const isUser = group.sender_id === userId;
+            const groupClass = isUser ? 'user' : 'partner';
+            
+            return `
+                <div class="message-group ${groupClass}">
+                    ${group.messages.map((msg, index) => {
+                        const time = formatTime(msg.timestamp);
+                        // Показываем время только для последнего сообщения в группе
+                        const showTime = index === group.messages.length - 1;
+                        
+                        return `
+                            <div class="message-container ${groupClass}">
+                                <div class="message">${msg.message}</div>
+                                ${showTime ? `<div class="message-time">${time}</div>` : ''}
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }).join('');
         
         // Прокручиваем вниз только если пользователь уже был внизу
         if (wasAtBottom) {

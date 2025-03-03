@@ -5,6 +5,9 @@
     --link-color: #2481cc;
     --button-color: #2481cc;
     --button-text-color: #ffffff;
+    --user-message-bg: #eeffde;
+    --partner-message-bg: #ffffff;
+    --message-time: #8d969c;
 }
 
 html, body {
@@ -202,6 +205,7 @@ html, body {
     box-sizing: border-box;
     -webkit-overflow-scrolling: touch;
     width: 100%;
+    background-color: #f5f7f9; /* Фон как в Telegram */
 }
 
 .chat-input {
@@ -224,7 +228,7 @@ html, body {
     flex-grow: 1;
     padding: 10px;
     border: 1px solid #ccc;
-    border-radius: 4px;
+    border-radius: 18px;
     background-color: var(--bg-color);
     color: var(--text-color);
     width: 100%;
@@ -240,30 +244,76 @@ button {
     min-width: 80px;
 }
 
-.message {
-    margin: 5px 0;
-    padding: 10px;
-    border-radius: 10px;
+/* Стили для сообщений в стиле Telegram */
+.message-container {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 8px;
     max-width: 80%;
+    clear: both;
+}
+
+.message-container.user {
+    align-self: flex-end;
+    margin-left: auto;
+}
+
+.message-container.partner {
+    align-self: flex-start;
+    margin-right: auto;
+}
+
+.message {
+    padding: 8px 12px;
+    border-radius: 12px;
+    position: relative;
     word-wrap: break-word;
+    font-size: 15px;
+    line-height: 1.4;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.05);
+}
+
+.message-container.user .message {
+    background-color: var(--user-message-bg);
+    border-bottom-right-radius: 4px;
+}
+
+.message-container.partner .message {
+    background-color: var(--partner-message-bg);
+    border-bottom-left-radius: 4px;
+}
+
+.message-time {
+    font-size: 11px;
+    color: var(--message-time);
+    margin-top: 2px;
+    text-align: right;
+    padding-right: 4px;
+}
+
+.message-container.user .message-time {
+    text-align: right;
+}
+
+.message-container.partner .message-time {
+    text-align: left;
+}
+
+/* Группировка сообщений */
+.message-group {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 16px;
+    width: 100%;
     clear: both;
 }
 
-.message.user {
-    background: rgba(19, 137, 80, 0.2);
-    float: right;
+.message-group.user {
+    align-items: flex-end;
 }
 
-.message.partner {
-    background: rgba(113, 135, 222, 0.2);
-    float: left;
-}
-
-/* Очистка после сообщений */
-.message-list::after {
-    content: "";
-    display: table;
-    clear: both;
+.message-group.partner {
+    align-items: flex-start;
 }
 
 /* Медиа-запросы для разных размеров экрана */
