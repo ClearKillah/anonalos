@@ -61,6 +61,8 @@ const nicknameError = document.getElementById('nickname-error');
 
 const searchScreen = document.getElementById('search-screen');
 const randomChat = document.getElementById('random-chat');
+const searchLoading = document.getElementById('search-loading');
+const searchTimer = document.getElementById('search-timer');
 
 const chatScreen = document.getElementById('chat-screen');
 const partnerSpan = document.getElementById('partner');
@@ -75,6 +77,8 @@ let currentPartner = null;
 let currentScreen = 'nickname'; // nickname, search, chat
 let userNickname = null;
 let isInChat = false;
+let searchTimerId = null;
+let searchStartTime = 0;
 
 // Инициализация
 async function init() {
@@ -120,12 +124,18 @@ function showScreen(screen) {
             break;
         case 'search':
             searchScreen.classList.remove('hidden');
+            // Сбрасываем UI поиска при переходе на экран поиска
+            randomChat.classList.remove('hidden');
+            searchLoading.classList.add('hidden');
+            stopSearchTimer();
             break;
         case 'chat':
             chatScreen.classList.remove('hidden');
             adjustHeight(); // Настраиваем высоту чата
             break;
     }
+    
+    forceFullscreen(); // Обновляем полноэкранный режим
 }
 
 // Отправка и сохранение никнейма
@@ -168,14 +178,57 @@ async function saveNickname() {
 // Начать случайный чат
 async function startRandomChat() {
     try {
+        // Показываем индикатор загрузки и скрываем кнопку
+        randomChat.classList.add('hidden');
+        searchLoading.classList.remove('hidden');
+        
+        // Запускаем таймер
+        searchStartTime = Date.now();
+        startSearchTimer();
+        
+        // Запрашиваем чат
         await fetch(`/api/chat?userId=${userId}`);
+        
+        // Останавливаем таймер
+        stopSearchTimer();
+        
+        // Переходим в чат
         isInChat = true;
         showScreen('chat');
         updateChat();
     } catch (error) {
         console.error('Ошибка при начале случайного чата:', error);
         alert('Не удалось начать случайный чат');
+        
+        // Останавливаем таймер и возвращаем кнопку
+        stopSearchTimer();
+        randomChat.classList.remove('hidden');
+        searchLoading.classList.add('hidden');
     }
+}
+
+// Функция для запуска таймера поиска
+function startSearchTimer() {
+    // Сбрасываем таймер
+    searchTimer.textContent = '0';
+    
+    // Запускаем интервал обновления
+    searchTimerId = setInterval(() => {
+        const elapsedSeconds = Math.floor((Date.now() - searchStartTime) / 1000);
+        searchTimer.textContent = elapsedSeconds;
+    }, 1000);
+}
+
+// Функция для остановки таймера поиска
+function stopSearchTimer() {
+    if (searchTimerId) {
+        clearInterval(searchTimerId);
+        searchTimerId = null;
+    }
+    
+    // Сбрасываем UI
+    randomChat.classList.remove('hidden');
+    searchLoading.classList.add('hidden');
 }
 
 // Завершить текущий чат
