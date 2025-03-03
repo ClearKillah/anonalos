@@ -185,17 +185,26 @@ app.get('/api/chat', (req, res) => {
                     return res.status(500).json({ error: 'Ошибка базы данных' });
                 }
                 
-                db.all('SELECT sender_id, message FROM messages WHERE chat_id = ? ORDER BY timestamp', 
+                db.all('SELECT sender_id, message, timestamp FROM messages WHERE chat_id = ? ORDER BY timestamp', 
                     [user.chat_id], (err, messages) => {
                         if (err) {
                             console.error('Ошибка при получении сообщений:', err);
                             return res.status(500).json({ error: 'Ошибка базы данных' });
                         }
                         
+                        // Убедимся, что у всех сообщений есть timestamp
+                        const processedMessages = (messages || []).map(msg => {
+                            // Если timestamp отсутствует, добавляем текущее время
+                            if (!msg.timestamp) {
+                                msg.timestamp = Date.now();
+                            }
+                            return msg;
+                        });
+                        
                         res.json({ 
                             partner: partnerId, 
                             partnerNickname: partner ? partner.nickname : 'Unknown', 
-                            messages: messages || [] 
+                            messages: processedMessages
                         });
                     });
             });
@@ -228,17 +237,19 @@ app.post('/api/send', (req, res) => {
                 return res.status(400).json({ error: 'Чат не найден или завершен' });
             }
             
+            const timestamp = Date.now();
+            
             db.run('INSERT INTO messages (chat_id, sender_id, message, timestamp) VALUES (?, ?, ?, ?)', 
-                [user.chat_id, userId, message, Date.now()], (err) => {
+                [user.chat_id, userId, message, timestamp], (err) => {
                     if (err) {
                         console.error('Ошибка при сохранении сообщения:', err);
                         return res.status(500).json({ error: 'Ошибка базы данных' });
                     }
                     
                     // Обновляем время активности пользователя
-                    db.run('UPDATE users SET last_activity_time = ? WHERE telegram_id = ?', [Date.now(), userId]);
+                    db.run('UPDATE users SET last_activity_time = ? WHERE telegram_id = ?', [timestamp, userId]);
                     
-                    res.status(200).json({ success: true });
+                    res.status(200).json({ success: true, timestamp });
                 });
         });
     });

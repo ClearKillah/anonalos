@@ -292,16 +292,36 @@ function adjustHeight() {
 
 // Функция для форматирования времени
 function formatTime(timestamp) {
-    const date = new Date(parseInt(timestamp));
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (!timestamp) return '';
+    
+    try {
+        const date = new Date(parseInt(timestamp));
+        // Проверка на валидную дату
+        if (isNaN(date.getTime())) {
+            return '';
+        }
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } catch (error) {
+        console.error('Ошибка форматирования времени:', error);
+        return '';
+    }
 }
 
 // Функция для группировки сообщений по отправителю
 function groupMessages(messages) {
+    if (!Array.isArray(messages) || messages.length === 0) {
+        return [];
+    }
+    
     const groups = [];
     let currentGroup = null;
     
     messages.forEach(msg => {
+        // Проверяем наличие необходимых полей
+        if (!msg || !msg.sender_id) {
+            return;
+        }
+        
         // Если нет текущей группы или отправитель изменился, создаем новую группу
         if (!currentGroup || currentGroup.sender_id !== msg.sender_id) {
             currentGroup = {
@@ -351,6 +371,12 @@ async function updateChat() {
         // Проверка, нужно ли прокручивать вниз
         const wasAtBottom = messageList.scrollTop + messageList.clientHeight >= messageList.scrollHeight - 10;
         
+        // Проверяем наличие сообщений
+        if (!data.messages || !Array.isArray(data.messages)) {
+            console.error('Неверный формат сообщений:', data.messages);
+            return;
+        }
+        
         // Группируем сообщения по отправителю
         const messageGroups = groupMessages(data.messages);
         
@@ -362,14 +388,19 @@ async function updateChat() {
             return `
                 <div class="message-group ${groupClass}">
                     ${group.messages.map((msg, index) => {
+                        // Безопасно получаем текст сообщения
+                        const messageText = msg.message || '';
+                        
+                        // Безопасно форматируем время
                         const time = formatTime(msg.timestamp);
+                        
                         // Показываем время только для последнего сообщения в группе
                         const showTime = index === group.messages.length - 1;
                         
                         return `
                             <div class="message-container ${groupClass}">
-                                <div class="message">${msg.message}</div>
-                                ${showTime ? `<div class="message-time">${time}</div>` : ''}
+                                <div class="message">${messageText}</div>
+                                ${showTime && time ? `<div class="message-time">${time}</div>` : ''}
                             </div>
                         `;
                     }).join('')}
