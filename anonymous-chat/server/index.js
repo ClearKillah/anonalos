@@ -1,12 +1,23 @@
 const express = require('express');
 const db = require('./db');
-const { nanoid } = require('nanoid');
+const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Middleware
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '../public')));
+
+// Статические файлы - фикс для Railway
+const publicPath = path.join(__dirname, '../public');
+console.log('Serving static files from:', publicPath);
+app.use(express.static(publicPath));
+
+// Обработка ошибок
+app.use((err, req, res, next) => {
+  console.error('Error occurred:', err);
+  res.status(500).send('Внутренняя ошибка сервера');
+});
 
 let waitingUsers = [];
 
@@ -51,7 +62,7 @@ function matchPartner(userId, res) {
             waitingUsers.push(userId);
             return res.json({ partner: null, messages: [] });
         }
-        const chatId = nanoid();
+        const chatId = uuidv4();
         db.run('INSERT INTO chats (id, user1_id, user2_id) VALUES (?, ?, ?)', [chatId, userId, partner.telegram_id]);
         db.run('UPDATE users SET chat_id = ? WHERE telegram_id IN (?, ?)', [chatId, userId, partner.telegram_id]);
         res.json({ partner: partner.telegram_id, messages: [] });
