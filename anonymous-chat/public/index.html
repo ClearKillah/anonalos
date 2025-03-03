@@ -7,12 +7,43 @@
     <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-    <div class="header">Партнер: <span id="partner">Ищем...</span></div>
-    <div class="message-list" id="message-list"></div>
-    <div class="chat-input">
-        <input type="text" id="input-message" placeholder="Сообщение...">
-        <button onclick="sendMessage()">Отправить</button>
+    <!-- Экран ввода никнейма -->
+    <div id="nickname-screen" class="screen">
+        <div class="welcome-title">Добро пожаловать в анонимный чат!</div>
+        <div class="form-container">
+            <input type="text" id="nickname-input" placeholder="Введите ваш никнейм...">
+            <button id="nickname-submit">Сохранить</button>
+            <div id="nickname-error" class="error-message"></div>
+        </div>
     </div>
+    
+    <!-- Экран поиска собеседника -->
+    <div id="search-screen" class="screen hidden">
+        <div class="header-search">
+            <button id="back-to-chat">Назад</button>
+            <div class="title">Поиск собеседника</div>
+            <button id="random-chat">Случайный</button>
+        </div>
+        <div class="search-container">
+            <input type="text" id="search-input" placeholder="Введите никнейм для поиска...">
+            <div id="search-results" class="results-container"></div>
+        </div>
+    </div>
+    
+    <!-- Экран чата -->
+    <div id="chat-screen" class="screen hidden">
+        <div class="header">
+            <button id="find-user" class="header-button">Найти</button>
+            <span>Собеседник: <span id="partner">Ищем...</span></span>
+            <button id="end-chat" class="header-button">Выход</button>
+        </div>
+        <div class="message-list" id="message-list"></div>
+        <div class="chat-input">
+            <input type="text" id="input-message" placeholder="Сообщение...">
+            <button id="send-button">Отправить</button>
+        </div>
+    </div>
+    
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="/script.js"></script>
 </body>

@@ -15,6 +15,124 @@ app.use(express.static(publicPath));
 
 let waitingUsers = [];
 
+// Проверка и регистрация никнейма
+app.post('/api/register', (req, res) => {
+    const { userId, nickname } = req.body;
+    
+    if (!userId || !nickname) {
+        return res.status(400).json({ error: 'Не указан userId или nickname' });
+    }
+    
+    // Проверяем, что никнейм не занят
+    db.get('SELECT * FROM users WHERE nickname = ? AND telegram_id != ?', [nickname, userId], (err, user) => {
+        if (err) {
+            console.error('Ошибка при проверке никнейма:', err);
+            return res.status(500).json({ error: 'Ошибка базы данных' });
+        }
+        
+        if (user) {
+            return res.status(400).json({ error: 'Этот никнейм уже занят' });
+        }
+        
+        // Обновляем или добавляем пользователя с никнеймом
+        db.run('INSERT OR REPLACE INTO users (telegram_id, nickname, last_activity_time) VALUES (?, ?, ?)', 
+            [userId, nickname, Date.now()], (err) => {
+                if (err) {
+                    console.error('Ошибка при сохранении никнейма:', err);
+                    return res.status(500).json({ error: 'Ошибка базы данных' });
+                }
+                
+                res.json({ success: true, nickname });
+            });
+    });
+});
+
+// Получить информацию о пользователе
+app.get('/api/user', (req, res) => {
+    const userId = req.query.userId;
+    
+    if (!userId) {
+        return res.status(400).json({ error: 'Не указан userId' });
+    }
+    
+    db.get('SELECT nickname, chat_id FROM users WHERE telegram_id = ?', [userId], (err, user) => {
+        if (err) {
+            console.error('Ошибка при получении информации о пользователе:', err);
+            return res.status(500).json({ error: 'Ошибка базы данных' });
+        }
+        
+        res.json({ 
+            hasNickname: !!user?.nickname,
+            nickname: user?.nickname || null,
+            inChat: !!user?.chat_id
+        });
+    });
+});
+
+// Поиск пользователей по никнейму
+app.get('/api/users/search', (req, res) => {
+    const { query, userId } = req.query;
+    
+    if (!query || !userId) {
+        return res.status(400).json({ error: 'Не указан запрос или userId' });
+    }
+    
+    // Ищем пользователей с похожим никнеймом, исключая текущего пользователя
+    db.all('SELECT telegram_id, nickname FROM users WHERE nickname LIKE ? AND telegram_id != ? LIMIT 10', 
+        [`%${query}%`, userId], (err, users) => {
+            if (err) {
+                console.error('Ошибка при поиске пользователей:', err);
+                return res.status(500).json({ error: 'Ошибка базы данных' });
+            }
+            
+            res.json({ users: users || [] });
+        });
+});
+
+// Начать чат с конкретным пользователем
+app.post('/api/chat/start', (req, res) => {
+    const { userId, partnerId } = req.body;
+    
+    if (!userId || !partnerId) {
+        return res.status(400).json({ error: 'Не указан userId или partnerId' });
+    }
+    
+    // Проверяем, что оба пользователя не находятся в чатах
+    db.get('SELECT chat_id FROM users WHERE telegram_id IN (?, ?) AND chat_id IS NOT NULL', 
+        [userId, partnerId], (err, user) => {
+            if (err) {
+                console.error('Ошибка при проверке статуса пользователей:', err);
+                return res.status(500).json({ error: 'Ошибка базы данных' });
+            }
+            
+            if (user) {
+                return res.status(400).json({ error: 'Один из пользователей уже находится в чате' });
+            }
+            
+            const chatId = uuidv4();
+            
+            // Создаем чат
+            db.run('INSERT INTO chats (id, user1_id, user2_id) VALUES (?, ?, ?)', 
+                [chatId, userId, partnerId], (err) => {
+                    if (err) {
+                        console.error('Ошибка при создании чата:', err);
+                        return res.status(500).json({ error: 'Ошибка базы данных' });
+                    }
+                    
+                    // Обновляем статусы пользователей
+                    db.run('UPDATE users SET chat_id = ? WHERE telegram_id IN (?, ?)',
+                        [chatId, userId, partnerId], (err) => {
+                            if (err) {
+                                console.error('Ошибка при обновлении статусов:', err);
+                                return res.status(500).json({ error: 'Ошибка базы данных' });
+                            }
+                            
+                            res.json({ success: true, chatId });
+                        });
+                });
+        });
+});
+
 app.get('/api/chat', (req, res) => {
     const userId = req.query.userId;
     
@@ -23,13 +141,22 @@ app.get('/api/chat', (req, res) => {
         return res.status(400).json({ error: 'Не указан userId' });
     }
     
-    db.get('SELECT chat_id FROM users WHERE telegram_id = ?', [userId], (err, user) => {
+    db.get('SELECT chat_id, nickname FROM users WHERE telegram_id = ?', [userId], (err, user) => {
         if (err) {
             console.error('Ошибка при поиске пользователя:', err);
             return res.status(500).json({ error: 'Ошибка базы данных' });
         }
         
-        if (!user || !user.chat_id) {
+        if (!user) {
+            return res.status(400).json({ error: 'Пользователь не найден' });
+        }
+        
+        // Если никнейм не задан, возвращаем статус
+        if (!user.nickname) {
+            return res.json({ needNickname: true });
+        }
+        
+        if (!user.chat_id) {
             // Если нет чата, ищем партнера
             return matchPartner(userId, res);
         }
@@ -51,15 +178,27 @@ app.get('/api/chat', (req, res) => {
             
             const partnerId = chat.user1_id === userId ? chat.user2_id : chat.user1_id;
             
-            db.all('SELECT sender_id, message FROM messages WHERE chat_id = ? ORDER BY timestamp', 
-                [user.chat_id], (err, messages) => {
-                    if (err) {
-                        console.error('Ошибка при получении сообщений:', err);
-                        return res.status(500).json({ error: 'Ошибка базы данных' });
-                    }
-                    
-                    res.json({ partner: partnerId, messages: messages || [] });
-                });
+            // Получаем никнейм партнера
+            db.get('SELECT nickname FROM users WHERE telegram_id = ?', [partnerId], (err, partner) => {
+                if (err) {
+                    console.error('Ошибка при получении никнейма партнера:', err);
+                    return res.status(500).json({ error: 'Ошибка базы данных' });
+                }
+                
+                db.all('SELECT sender_id, message FROM messages WHERE chat_id = ? ORDER BY timestamp', 
+                    [user.chat_id], (err, messages) => {
+                        if (err) {
+                            console.error('Ошибка при получении сообщений:', err);
+                            return res.status(500).json({ error: 'Ошибка базы данных' });
+                        }
+                        
+                        res.json({ 
+                            partner: partnerId, 
+                            partnerNickname: partner ? partner.nickname : 'Unknown', 
+                            messages: messages || [] 
+                        });
+                    });
+            });
         });
     });
 });
@@ -101,6 +240,51 @@ app.post('/api/send', (req, res) => {
                     
                     res.status(200).json({ success: true });
                 });
+        });
+    });
+});
+
+// Завершить чат
+app.post('/api/chat/end', (req, res) => {
+    const { userId } = req.body;
+    
+    if (!userId) {
+        return res.status(400).json({ error: 'Не указан userId' });
+    }
+    
+    db.get('SELECT chat_id FROM users WHERE telegram_id = ?', [userId], (err, user) => {
+        if (err) {
+            console.error('Ошибка при поиске пользователя:', err);
+            return res.status(500).json({ error: 'Ошибка базы данных' });
+        }
+        
+        if (!user || !user.chat_id) {
+            return res.status(400).json({ error: 'Чат не найден' });
+        }
+        
+        // Получаем партнера
+        db.get('SELECT user1_id, user2_id FROM chats WHERE id = ?', [user.chat_id], (err, chat) => {
+            if (err || !chat) {
+                if (err) console.error('Ошибка при получении чата:', err);
+                
+                // В любом случае сбрасываем chat_id пользователя
+                db.run('UPDATE users SET chat_id = NULL WHERE telegram_id = ?', [userId]);
+                return res.json({ success: true });
+            }
+            
+            const partnerId = chat.user1_id === userId ? chat.user2_id : chat.user1_id;
+            
+            // Помечаем чат как завершенный и сбрасываем chat_id у обоих пользователей
+            db.run('UPDATE chats SET ended = 1 WHERE id = ?', [user.chat_id], (err) => {
+                if (err) console.error('Ошибка при завершении чата:', err);
+                
+                db.run('UPDATE users SET chat_id = NULL WHERE telegram_id IN (?, ?)', 
+                    [userId, partnerId], (err) => {
+                        if (err) console.error('Ошибка при обновлении пользователей:', err);
+                        
+                        res.json({ success: true });
+                    });
+            });
         });
     });
 });
@@ -155,7 +339,19 @@ function matchPartner(userId, res) {
                         // Удаляем пользователей из списка ожидания
                         waitingUsers = waitingUsers.filter(id => id !== userId && id !== partner.telegram_id);
                         
-                        res.json({ partner: partner.telegram_id, messages: [] });
+                        // Получаем никнейм партнера
+                        db.get('SELECT nickname FROM users WHERE telegram_id = ?', [partner.telegram_id], (err, partnerInfo) => {
+                            if (err) {
+                                console.error('Ошибка при получении никнейма партнера:', err);
+                                return res.status(500).json({ error: 'Ошибка базы данных' });
+                            }
+                            
+                            res.json({ 
+                                partner: partner.telegram_id, 
+                                partnerNickname: partnerInfo ? partnerInfo.nickname : 'Unknown',
+                                messages: [] 
+                            });
+                        });
                     });
             });
     });
